@@ -1,4 +1,5 @@
 // File: api/token.js
+// --- CORRECTED VERSION ---
 
 export default async function handler(req, res) {
     console.log("--- VERCEL LOG: /api/token function invoked ---");
@@ -18,16 +19,14 @@ export default async function handler(req, res) {
             return res.status(400).send('Missing authorization code');
         }
 
-        // Log all environment variables to check if they are loaded
         const clientId = process.env.VITE_DISCORD_CLIENT_ID;
         const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-        const hostUrl = process.env.VITE_HOST_URL;
 
         console.log("Env Var - VITE_DISCORD_CLIENT_ID:", clientId ? "Loaded" : "!!! UNDEFINED !!!");
         console.log("Env Var - DISCORD_CLIENT_SECRET:", clientSecret ? "Loaded (hidden)" : "!!! UNDEFINED !!!");
-        console.log("Env Var - VITE_HOST_URL:", hostUrl ? hostUrl : "!!! UNDEFINED !!!");
 
-        if (!clientId || !clientSecret || !hostUrl) {
+        // We removed VITE_HOST_URL, as it is not needed
+        if (!clientId || !clientSecret) {
             console.log("Error: One or more environment variables are missing.");
             return res.status(500).send("Server configuration error.");
         }
@@ -37,10 +36,10 @@ export default async function handler(req, res) {
         params.append('client_secret', clientSecret);
         params.append('grant_type', 'authorization_code');
         params.append('code', code);
-        params.append('redirect_uri', hostUrl);
+        // --- THIS LINE WAS REMOVED ---
+        // params.append('redirect_uri', hostUrl); 
 
         console.log("Sending request to Discord API (/oauth2/token)...");
-        console.log("...with redirect_uri:", hostUrl);
         
         const response = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
@@ -55,7 +54,6 @@ export default async function handler(req, res) {
 
         if (!response.ok) {
             console.error("Error from Discord API:", data);
-            // This is the most common error: redirect_uri_mismatch
             return res.status(response.status).json(data);
         }
 
