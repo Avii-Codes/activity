@@ -22,6 +22,7 @@
         #status {
             font-size: 1.5rem;
             margin-bottom: 20px;
+            height: 30px; /* Reserve space */
         }
         #board {
             display: grid;
@@ -114,17 +115,19 @@
 
         async function setupDiscordSdk() {
             statusDisplay.textContent = 'Connecting to Discord...';
+            console.log("--- DEBUG START ---");
             
             // 2. Initialize the SDK
-            // We use query parameters for Vercel's env vars
-            const queryParams = new URLSearchParams(window.location.search);
-            const clientId = 1426617499436191874;
-            const hostUrl = `${window.location.protocol}//${window.location.host}`;
+            // (!!!) HARDCODE YOUR CLIENT ID HERE (!!!)
+            // Get this from your Discord Developer Portal
+            const clientId = "1426617499436191874"; 
 
-            if (!clientId) {
-                statusDisplay.textContent = 'Error: Missing client_id.';
+            if (!clientId || clientId === "YOUR_BOTS_CLIENT_ID_GOES_HER") {
+                statusDisplay.textContent = 'Error: Missing client_id in index.html.';
+                console.error("Step 1 FAILED: Client ID is missing or is the placeholder.");
                 return;
             }
+            console.log("Step 1: Client ID loaded:", clientId);
 
             discordSdk = new DiscordSDK(clientId);
             
@@ -132,6 +135,7 @@
                 // 3. Wait for the SDK to be ready
                 await discordSdk.ready();
                 statusDisplay.textContent = 'Authorizing...';
+                console.log("Step 2: Discord SDK is ready.");
 
                 // 4. Authorize to get the 'code'
                 const { code } = await discordSdk.commands.authorize({
@@ -141,31 +145,45 @@
                     prompt: 'none',
                     scope: ['identify', 'guilds', 'rpc.activities.write'],
                 });
+                console.log("Step 3: Authorization successful. Got auth code:", code.substring(0, 10) + "...");
 
                 // 5. Send 'code' to our backend (/api/token)
                 statusDisplay.textContent = 'Authenticating...';
+                console.log("Step 4: Sending code to backend at /api/token");
+                
                 const response = await fetch('/api/token', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code }),
                 });
+                console.log("Step 5: Got response from backend:", response.status, response.statusText);
+                
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error("Backend Error Body:", errorBody);
+                    throw new Error(`Server error: ${response.status}. See Vercel logs for /api/token.`);
+                }
+                
                 const { access_token } = await response.json();
+                console.log("Step 6: Got access token from backend.");
 
                 // 6. Authenticate with the 'access_token'
                 auth = await discordSdk.commands.authenticate({
                     access_token,
                 });
+                console.log("Step 7: Authenticated with Discord client.");
 
                 if (!auth) {
                     throw new Error('Authentication failed.');
                 }
                 
+                console.log("--- DEBUG SUCCESS ---");
                 statusDisplay.textContent = "Welcome! Your turn (X)";
 
             } catch (err) {
-                console.error("SDK Error:", err);
-                statusDisplay.textContent = "Error connecting. Please relaunch.";
-                // Disable game on auth failure
+                console.error("--- DEBUG FAILED ---");
+                console.error("Final Error:", err);
+                statusDisplay.textContent = "Error connecting. See console (Ctrl+Shift+I).";
                 gameActive = false;
                 cells.forEach(cell => cell.removeEventListener('click', handleCellClick));
                 resetButton.disabled = true;
@@ -289,5 +307,4 @@
         setupDiscordSdk();
     </script>
 </body>
-
 </html>
